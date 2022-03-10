@@ -1,8 +1,10 @@
 ---
 title: "class11"
 output:
-  pdf_document: default
+  html_document:
+    df_print: paged
   word_document: default
+  pdf_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -168,7 +170,8 @@ We will use the `mapIds()` function to translate between different ids.
 
 ```{r}
 #All available types to map between: `columns(org.Hs.eg.db)`
-
+library(AnnotationDbi)
+library(org.Hs.eg.db)
 res$symbol <- mapIds(org.Hs.eg.db,
                      keys=row.names(res), # Our genenames
                      keytype="ENSEMBL",        # The format of our genenames

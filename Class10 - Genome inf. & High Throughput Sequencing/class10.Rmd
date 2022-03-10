@@ -1,6 +1,8 @@
 ---
 title: "Introduction to Genome Informatics"
-output: pdf_document
+output:
+  html_document:
+    df_print: paged
 ---
 
 ```{r setup, include=FALSE}
@@ -73,7 +75,7 @@ Here, we will be using Tophat to map the RNA sequences to the human genome.
 The Cufflinks tool allows us to calculate gene expression (aligns RNA with annotated genome to result in list of genes being expressed, as evidenced by their transcription into RNA).
 
 ```{r Cufflinks Gene Expression}
-gene <- read.table("C:/Users/rodeo/Documents/School/BIMM 143/R Projects/Class10/Galaxy20-[Cufflinks_on_data_18_and_data_16__gene_expression].tabular")
+gene <- read.table("Galaxy20-[Cufflinks_on_data_18_and_data_16__gene_expression].tabular")
 
 gene[ gene$V10 > 0, 1]
 ```
@@ -91,6 +93,4 @@ table(as)
 summary(as)
 boxplot(as$exp, group = factor(as$geno))
 ```
-
-> Q13. 
 

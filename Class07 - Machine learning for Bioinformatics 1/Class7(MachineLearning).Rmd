@@ -1,8 +1,8 @@
 ---
 title: "Class7(MachineLearning)"
 output:
-  pdf_document: default
   html_document: default
+  pdf_document: default
 ---
 
 # Clustering Methods
