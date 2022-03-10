@@ -1,2 +1,2 @@
 # bimm143
-Bioinformatics class WI22 projects repository
+Bioinformatics class WI22 at UCSD. 
