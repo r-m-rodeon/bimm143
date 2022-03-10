@@ -10,6 +10,6 @@ Bioinformatics class WI22 at UC San Diego.
 - Class 10: [Genome inf. & High Throughput Sequencing](https://htmlpreview.github.io/?)
 - Class 11: [Transcriptomics, RNA-Seq Analysis, and Interpretation of Gene Lists](https://htmlpreview.github.io/?)
 - Class 12: [RNA-Seq Analysis Project](https://htmlpreview.github.io/?) 
-- Class 13: [Essential UNIX](https://htmlpreview.github.io/?)
+- Class 13: [Essential UNIX]
 - Class 14: [Vaccination Rate Mini-Project](https://htmlpreview.github.io/?)
 - Class 15: [Pertussis Investigation (web-scraping)](https://htmlpreview.github.io/?)
