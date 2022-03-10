@@ -1,0 +1,209 @@
+---
+title: "class12"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Section 1. Differential Expression Analysis
+
+```{r package import}
+#Load Packages
+library(DESeq2)
+library(ggplot2)
+library(org.Hs.eg.db)
+library(AnnotationDbi)
+library(pathview)
+library(gage)
+library(gageData)
+```
+
+## Data Formatting
+```{r data import}
+#Load Data Files
+colData = read.csv("GSE37704_metadata.csv") #metadata file
+countData = read.csv("GSE37704_featurecounts.csv", row.names=1) #counts file
+```
+
+Length column in countData is not relevant for further processing...
+Get colData and countData to match in format [DO NOT REPEAT - will mess up code]
+```{r data formatting}
+#colData <- t(colData) #DO NOT transpose data to match countData <-> inverse x & y are OK!!!
+countData <- countData[,-1] #Remove column `length` because colData doesn't have reference to it
+```
+
+Log transformations will not work on zero values, and genes with zeros across all cells
+```{r zero removal}
+#Remove zero values from countData
+countData <- countData[rowSums(countData) != 0, ]
+```
+
+```{r data setup}
+#Put Data together in DESeq2 format
+dds = DESeqDataSetFromMatrix(countData=countData,
+                             colData=colData,
+                             design=~condition)
+```
+
+## Running DESeq2 
+```{r deseq2 analysis}
+#Run the DESeq2 pipeline
+dds = DESeq(dds)
+res = results(dds, contrast=c("condition", "hoxa1_kd", "control_sirna"))
+
+#Visualize results
+summary(res) #4349 genes up-regulated (27%) #4396 genes down-regulated (28%)
+```
+
+## Volcano Plot
+
+To visualize the results, we can make a volcano plot. We will color the points based on their relevance: grey = default, red = only fold change > 2, blue = adj p-value < 0.01 && fold change > 2. The colorings proceed in the order from least stringent requirements to most stringent requirements because each step colors over points that already have a color. 
+```{r volcano plot}
+#Base plot code
+#plot( res$log2FoldChange, -log(res$padj) )
+
+# Make a color vector for all genes; same length as the number of results points
+volcano.colors <- rep("gray", nrow(res) ) 
+volcano.colors[ abs(res$log2FoldChange) > 2 ] <- "red" #color corresponding points blue
+volcano.colors[ (res$padj < 0.01) & (abs(res$log2FoldChange) > 2 ) ] <- "blue" #color corresponding points red (red is last bc it has the most stringent requirement) - THESE ARE THE POINTS WE ARE LOOKING FOR
+
+#Replot the plot
+plot( res$log2FoldChange, -log(res$padj), col=volcano.colors, xlab="Log2(FoldChange)", ylab="-Log(P-value)" )
+```
+
+## Adding Gene Annotation 
+
+KEGG Pathway Analysis uses Entrez IDs, not Ensembl IDs, so we need to add a traslation column to res (DESeq2 results file)
+```{r}
+#Add Entrez Gene IDs as a column in res
+res$Entrez <- mapIds(org.Hs.eg.db,
+                     keys = row.names(res),
+                     keytype = "ENSEMBL",
+                     column = "ENTREZID",
+                     multiVals = "first")
+
+#Add Gene Symbols as a column in res
+res$Symbol <- mapIds(org.Hs.eg.db,
+                     keys = row.names(res),
+                     keytype = "ENSEMBL",
+                     column = "SYMBOL",
+                     multiVals = "first")
+
+#Add Gene Names as a column in res
+res$Name <- mapIds(org.Hs.eg.db,
+                     keys = row.names(res),
+                     keytype = "ENSEMBL",
+                     column = "GENENAME",
+                     multiVals = "first")
+```
+
+```{r}
+# Reorder results by adjusted p-value and SAVE to a CSV file.
+write.csv(res[order(res$pvalue),], file="DESeq_results.csv")
+```
+
+# Section 2. Pathway Analysis
+
+Here we are going to use the gage package for pathway analysis. Once we have a list of enriched pathways, we're going to use the pathview package to draw pathway diagrams, shading the molecules in the pathway by their degree of up/down-regulation.
+
+## KEGG Pathways
+```{r load and setup KEGG databases}
+data(kegg.sets.hs)
+data(sigmet.idx.hs)
+
+# Select for signaling and metabolic pathways only
+kegg.sets.hs = kegg.sets.hs[sigmet.idx.hs]
+```
+
+The main `gage()` function requires a named vector of fold changes, where the names of the values are the Entrez gene IDs.
+```{r format data for GAGE input}
+#Make the data vector first 
+gage.folds <- res$log2FoldChange
+
+#Assign names to vector values
+names(gage.folds) <- res$Entrez
+```
+
+```{r get the GAGE results}
+#Run the gage pathway analysis pipeline
+keggres = gage(gage.folds, gsets=kegg.sets.hs, same.dir=TRUE)
+```
+
+```{r KEGG visualization}
+#Saves as a PNG
+pathview(gene.data=gage.folds, pathway.id="hsa04110")
+#Saves as a PDF
+pathview(gene.data=gage.folds, pathway.id="hsa04110", kegg.native=FALSE)
+```
+
+
+## Top Five
+```{r KEGG top 5}
+## Focus on top 5 up-regulated pathways here for demo purposes only
+keggrespathways <- rownames(keggres$greater)[1:5]
+
+# Extract the 8 character long IDs part of each string
+keggresids = substr(keggrespathways, start=1, stop=8)
+keggresids
+
+#Visualize with pathview()
+pathview(gene.data=gage.folds, pathway.id=keggresids, species="hsa")
+```
+
+
+## Bottom Five
+```{r KEGG bottom 5}
+## Focus on top 5 up-regulated pathways here for demo purposes only
+keggrespathways <- rownames(keggres$less)[1:5]
+
+# Extract the 8 character long IDs part of each string
+keggresids = substr(keggrespathways, start=1, stop=8)
+keggresids
+
+#Visualize with pathview()
+pathview(gene.data=gage.folds, pathway.id=keggresids, species="hsa")
+```
+
+> Q5. Can you do the same procedure as above to plot the pathview figures for the top 5 down-reguled pathways?
+^ Done. (preceeding code chunk)
+
+# Section 3. Gene Ontology (GO)
+We can also do a similar procedure with gene ontology. Similar to above, go.sets.hs has all GO terms. go.subs.hs is a named list containing indexes for the BP, CC, and MF ontologies. Ontologies will tell us what specific processes are being dysregulated.
+
+```{r gene ontology}
+data(go.sets.hs)
+data(go.subs.hs)
+
+#Select for biological processes only
+gobpsets = go.sets.hs[go.subs.hs$BP]
+
+gobpres = gage(gage.folds, gsets=gobpsets, same.dir=TRUE)
+
+lapply(gobpres, head)
+```
+
+
+# Section 4. Reactome Analysis
+Reactome is database consisting of biological molecules and their relation to pathways and processes.
+
+```{r over-representation enrichment analysis}
+sig.genes <- res[res$padj <= 0.05 & !is.na(res$padj), "Symbol"]
+print(paste("Total number of significant genes:", length(sig.genes)))
+
+#Save data
+write.table(sig.genes, file="significant_genes.txt", row.names=FALSE, col.names=FALSE, quote=FALSE)
+```
+
+> Q6. The Endosomal/Vacuolar pathway has the most significant Entities p-value. No, the most significant pathways listed do not match previous KEGG results. There seems to not be anything in the code selecting for the highest/lowest expressing results from the gene ontology database. 
+
+
+```{r}
+#I am getting confused, so need to reorganize my data
+#First, I make my working data table
+working.table <- data.frame(countData[ colData$condition == "control_sirna" ], countData[ colData$condition == "hoxa1_kd" ])
+```
+
+
+

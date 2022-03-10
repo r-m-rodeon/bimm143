@@ -1,0 +1,133 @@
+---
+title: "Class7(MachineLearning)"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+# Clustering Methods
+
+Find groups (a.k.a.) clusters in my data
+
+## K-means Clustering
+
+```{r}
+#Generate some example data for clustering (with 2 clear groups)
+tmp <- c(rnorm(30, -3), rnorm(30, 3)) 
+x <- cbind(tmp, rev(tmp))
+
+plot(x)
+#Function: rnorm(number values, mean, st.dev) - generates numbers from norm. dist.
+#Function: cbind(dataset, dataset, etc.) - puts vectors into data frame as columns
+#Function: rev(dataset) - reverses the dataset (a,b,c) -> (c,b,a)
+```
+
+```{r}
+#The 'kmeans()' function does k-means clustering...
+k <- kmeans(x, center=4, nstart=20)
+k$size    #returns cluster size
+k$cluster #returns cluster assignment (1/2 vector)
+k$centers #returns coordinates of cluster centers
+
+plot(x, col=k$cluster)
+points(k$centers, col="blue", pch=15, cex=2)
+```
+
+## Hierarchical Clustering
+
+```{r}
+#The 'huclust()' function needs a distance matrix as input, not a set of the original data. For this, we can just use 'dist()' function.
+hc <- hclust(dist(x))
+hc
+
+plot(hc)
+abline(h=10, col="red")
+```
+
+```{r}
+#To get our grouping, we must cut the tree
+#To cut by a given height, 'h=' or into given number of clusters, 'k='
+#Function: cutree(hclust result vector, h or k argument)
+cut <- cutree(hc, h=3)
+
+plot(x, col=cut)
+```
+
+# PCA: Principal Component Analysis
+
+```{r}
+#Principal components (PCs) are new low dimensional axis (or surfaces) closes to the observations
+#The first PC - the first axis - follows a "best fit" line
+#The second PC is perpendicular to the first PC 
+
+#UK Foods PCA Analysis
+foods <- read.csv("C:\\Users\\rodeo\\Documents\\School\\BIMM 143\\R Projects\\Class07\\UK_foods.csv") #must use double backslash in file path
+dim(foods) #the file has 17 rows and 5 columns (row, col)
+head(foods)
+
+#fix row names in first column to be actual row names
+#alternative easy approach: 'x <- read.csv(url, row.names=1)'
+rownames(foods) <- foods[,1]
+foods <- foods[,-1]
+head(foods)
+
+#plot the data to see trends
+#'barplot()' uses vector or matrix as input -> use 'as.vector()' or 'as.matrix()'
+barplot(as.matrix(foods), beside=T, col=rainbow(nrow(foods)))
+#'pairs()' puts variables in omparative charts together
+pairs(foods, col=rainbow(10), pch=16)
+```
+
+## Actual PCA Now
+
+```{r}
+#The PCA function that comes pre-built with R is 'prcomp()', which needs an input with variables in the columns - so we must first transpose (switch x, y) our data. 
+#Function: t(dataset) - switches the axes of the data table
+pca <- prcomp( t(foods) )
+pca
+summary(pca)
+
+#What is in this returned pca object?
+attributes(pca)
+
+plot(pca$x[,1:2], col=c("red", "green", "orange", "blue", pch=18))
+text( pca$x[,1], pca$x[,2], labels=colnames(foods))
+
+#las = label rotation (accepts 0 thru 3)
+barplot(pca$rotation[,1], las=2)
+```
+
+# Other PCA Visualizations (RNA_seq biplot)
+
+```{r}
+#Get the data (gene expression this time)
+url2 <- "https://tinyurl.com/expression-CSV"
+rna.data <- read.csv(url2, row.names=1)
+head(rna.data)
+
+#How many genes are there?
+nrow(rna.data) #100 genes
+
+# Again we have to take the transpose of our data 
+pca <- prcomp(t(rna.data), scale=TRUE)
+summary(pca)
+
+#Make the score plot...
+ 
+## Simple unpolished plot of pc1 and pc2 (plot PC1 vs. PC2)
+plot(pca$x[,1], pca$x[,2], xlab="PC1", ylab="PC2", pch=15, col=c(rep("red", 5), rep("blue", 5))) # must repeat the color vector, otherwise shorter vector gets recycled
+
+#OR: kmeans(pca$x[,1], centers=2) -> for color
+```
+
+```{r}
+#Color by k-means cluster
+url2 <- "https://tinyurl.com/expression-CSV"
+rna.data <- read.csv(url2, row.names=1)
+
+pca <- prcomp( t(rna.data))
+k <- kmeans(pca$x[,1:2], center=2)
+
+plot(pca$x[,1], pca$x[,2], col=k$cluster, pch=15, xlab="PC1", ylab="PC2")
+```
+

@@ -1,0 +1,250 @@
+---
+title: "Unsupervised Learning Mini-Project"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Core functions: 
+
+## read.csv("YourFileName")
+## prcomp(x, scale = TRUE)
+## kmeans(x, centers = ?)
+## hclust(dist(x))
+
+```{r}
+# Make Available Data for Project
+wisc.df <- read.csv("WisconsinCancer.csv", row.names = 1)
+# Separate data and physician diagnosis
+wisc.data <- (wisc.df[,-1])
+diagnosis <- (wisc.df[,1])
+```
+# Exploratory Data Analysis.
+
+#Q1. There are 569 observations in this dataset. 
+
+```{r}
+#Check how many observations have a malignant diagnosis.
+x = 0 
+for(i in 1:length(diagnosis)) {
+  if(diagnosis[i] == "M") {x <- x+1}
+}
+x
+#also 'table(diagnosis)'
+#also 'sum(diagnosis == "M")
+```
+
+#Q2. There are 212 observations with a malignant diagnosis.
+
+```{r}
+# Check how many variables end with "_mean".
+length(grep(pattern = "*_mean", x = colnames(wisc.data)))
+```
+
+#Q3. There are 10 variables suffixed with "_mean".
+
+#Principal Component Analysis.
+
+```{r}
+# Check column means and standard deviations (1 = rows, 2 = cols)
+apply(wisc.data, 2, mean)
+apply(wisc.data, 2, sd)
+```
+
+```{r}
+# Perform PCA on wisc.data by completing the following code
+wisc.pr <- prcomp(wisc.data, scale=TRUE)
+summary(wisc.pr)
+# The more PCs you need to describe the data, the more all-over-the-place it is...
+```
+
+#Q4. The first principal component captures 44% of the variance in the data.
+#Q5. At least 3 PCs to describe >70% of the variance.
+#Q6. At least 7 PCs to describe >90% of the variance.
+
+```{r}
+# Visualize PCA Results
+biplot(wisc.pr)
+```
+
+#Q7. The plot contains a vast amount of data, but there seems to be an overall leftward trend. The plot is not at all easily interpretable.
+
+```{r}
+# Visualize PCA Results, but better
+factor_diagnosis <- as.factor(diagnosis)
+plot(wisc.pr$x[,1:2] , col=factor_diagnosis)
+
+plot(wisc.pr$x[,1], wisc.pr$x[,3], col=factor_diagnosis,
+     xlab="PC1", ylab="PC3")
+```
+
+#Q8. The plots are largely similiar. The only notable differences are that the P1/P2 plot seems to have negative outliers, whereas the P1/P3 plot has positive ones. These outliers change the y-scale of the plot, and the separation seems to be a little clearer in the P1/P2 plot, as the black values in the P1/P3 plot cross far into the red cluster territory.
+
+```{r}
+# Visualize data in ggplot
+
+# Create a data.frame for ggplot
+df <- as.data.frame(wisc.pr$x)
+df$diagnosis <- factor_diagnosis
+
+# Load the ggplot2 package
+library(ggplot2)
+
+# Make a scatter plot colored by diagnosis
+ggplot(df) + 
+  aes(PC1, PC2, col=diagnosis) + 
+  geom_point()
+```
+
+```{r}
+# Visualize Variance Capturing by PCs
+
+# Calculate variance from standard deviation
+pr.var <- wisc.pr$sdev^2
+pr.var
+
+# Variance explained by each principal component: pve
+pve <- pr.var / sum(pr.var)
+
+# Plot variance explained for each principal component
+plot(pve, xlab = "Principal Component", 
+     ylab = "Proportion of Variance Explained", 
+     ylim = c(0, 1), type = "o")
+```
+
+```{r}
+# Communicating PCA Results
+wisc.pr$rotation["concave.points_mean",1]
+```
+
+#Q9. The component of the loading vector for "concave.points_mean" is -0.26.
+#Q10. At least 5 PCs to describe >80% of the variance.
+
+# Hierarchical Clustering.
+
+```{r}
+# Try 'complete' clustering method 
+
+# Calculate scaled Euclidean distances of data points
+wisc.dist <- dist(scale(wisc.data))
+
+# Cluster w/ 'hclust()'
+wisc.hclust <- hclust(wisc.dist, method="complete")
+
+# Visualize
+plot(wisc.hclust)
+abline(h=19, col="red", lty=2)
+```
+
+#Q11. The abline must be placed at h=19 to cut the tree into 4 groups.
+
+```{r}
+# Extract Data
+ans <- NULL
+for(i in 2:10) {
+  x <- cutree(wisc.hclust, k=i)
+  ans <- rbind(ans, x)
+}
+#ans
+
+for(i in 1:9) {
+  print(table(ans[i,], diagnosis))
+}
+```
+
+#Q12. No, cutting the tree into any less groups ignores the split between the two large groups of patients, and cutting it into any more groups than 4 unnecessarily divides groups. 
+
+```{r}
+# Try 'ward.D2' method 
+
+# Calculate scaled Euclidean distances of data points
+wisc.dist <- dist(scale(wisc.data))
+
+# Cluster w/ 'hclust()'
+wisc.hclust <- hclust(wisc.dist, method="ward.D2")
+
+# Visualize
+plot(wisc.hclust)
+abline(h=19, col="red", lty=2)
+```
+
+#Q13. Netiher the 'single' nor the 'average' method come up with any kind of clustering that separates the malignant and benign groups, but I don't think I can pick a favorite between the 'complete' and 'ward.D2' methods. While 'ward.D2' returns satisfactory results with separation into just two clusters, when 'complete' works, it separates more accurately (less erroneous results) than 'ward.D2'.
+
+
+```{r}
+# See if k-means clustering gives same result
+
+wisc.km <- kmeans(wisc.data, centers= 2, nstart= 20)
+
+# Check result with table
+table(wisc.km$cluster, diagnosis) #kmeans clustering result
+table(ans [3,], diagnosis) #hclust result
+```
+
+#Q14. K-means satisfactorily separates the diagnoses. It is not as accurate as hclust, but it is close behind. There are clearly two groups
+
+# Combining Methods 
+
+```{r}
+# Apply hierarchical clustering to PCA Analysis
+wisc.pr.hclust <- hclust(dist(wisc.pr$x[,1:7]), method="ward.D2")
+
+# Visualize
+plot(wisc.pr.hclust)
+```
+
+```{r}
+# Split up the tree into groups 
+wisc.pr.hclust.cut <- cutree(wisc.pr.hclust, k=2)
+table(wisc.pr.hclust.cut, diagnosis)
+```
+
+#Q15. This new model has an error rate of 9%. It is a slight improvement over the hierarchical clustering we did on the raw data. (52 errors now, over 61 errors previously).
+
+```{r}
+# Compare all Results
+
+## K-means Clustering
+table(wisc.km$cluster, diagnosis)
+
+## Hierarchical Clustering on Data
+table(ans [3,], diagnosis)
+
+## Hierarchical Clustering on PCA Analysis
+table(wisc.pr.hclust.cut, diagnosis)
+```
+
+#Q16. Accuracy-wise overall, hierarchical clustering on PCA Analysis takes the win. It also identifies the lowest number of false negatives, which makes this the safest method for its applicaiton. 
+
+# Sensitivity/ Specificity
+
+#Q17. Total Malignant: 212, Total Benign: 357
+
+## K-means Clustering
+### Sensitivity: 130/212 = 61.3%
+### Specificity: 356/357 = 99.7%
+
+## Hierarchical Clustering
+### Sensitivity: 165/212 = 77.8%
+### Specificity: 343/357 = 96.1%
+
+## Hierarchical Clustering on Principal Components
+### Sensitivity: 188/212 = 88.7%
+### Specificity: 329/357 = 92.2%
+
+```{r}
+# Import New Data Points
+new <- read.csv("new_samples.csv")
+npc <- predict(wisc.pr, newdata=new)
+
+# Plot Old Data with Two New Points Overlay
+plot(wisc.pr$x[,1:2], col=factor_diagnosis)
+points(npc[,1], npc[,2], col="blue", pch=16, cex=3)
+text(npc[,1], npc[,2], c(1,2), col="white")
+```
+
+#Q18. Patient 2 should be prioritized as they probably have the malignant tumor. 

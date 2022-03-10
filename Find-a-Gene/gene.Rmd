@@ -1,0 +1,50 @@
+---
+title: "gene"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Make Heatmap of Gene (Q8)
+
+```{r}
+library(ggplot2)
+library(bio3d)
+ls("package:bio3d")
+
+#Import Data
+multiplealn <- read.fasta("gene_multipleAlignment_Q5")
+#Calculate Identity Matrix
+heat <- seqidentity(multiplealn)
+#Plot visualization
+heatmap(heat, margins = c(10,10))
+```
+
+
+```{r}
+#Plot visualization
+ggplot(heat) + aes(x = multiplealn$id, y = multiplealn$id, fill = heat) + geom_tile()
+```
+
+# BLAST Consensus Sequence
+```{r}
+#Consensus Sequence calculation
+con <- consensus(multiplealn, cutoff = 0.5)
+#Blast the consensus sequence 
+a <- get.seq("5OVI_A")
+b <- blast.pdb(con$seq)
+```
+
+```{r extract data for Q8}
+#Get top 3 ids
+ids <- head(b$hit.tbl$pdb.id, 3)
+#Send for annotations
+pdb.annotate(ids)
+```
+
+
+

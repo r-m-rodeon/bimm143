@@ -1,0 +1,8 @@
+
+This is just a text editor :)
+AWS Instance: i-0e5b118fdf2fc00a9
+
+AWS access command:
+ssh -i "bimm143_rmalinov.pem" ubuntu@ec2-35-88-20-251.us-west-2.compute.amazonaws.com
+
+UNIX Help Command: man *function*

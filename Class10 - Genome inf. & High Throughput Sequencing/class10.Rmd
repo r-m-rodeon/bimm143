@@ -1,0 +1,96 @@
+---
+title: "Introduction to Genome Informatics"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+# Section 1. Identifying genetic variants of interest
+
+This information is looked up using the Reference SNP cluster IDs in Ensembl.
+
+> Q1. The Verlaan et al. paper mentioned 4 candidate SNPs that demonstrate significant association with childhood asthma: 
+  rs12936231, rs8067378, rs9303277, and rs7216389.
+
+The genes and location can both be found in the `location` Ensembl browser tab. 
+
+> Q2. These four variants overlap or effect three genes:
+  ZPBP2, IKZF3, GSDMB.
+
+> Q3. Information about rs8067378:
+  Location: Chromosome 17: 39,894,595-39,895,595
+  3 Alleles: A/C/G
+  
+> Q4. Three dowstream genes for rs8067378:
+  ORMDL3_204, ORMDL3_202, ORMDL3_201
+
+Sample genotypes can be looked up back in the `Variant` tab in the `Sameple genotypes` section under "Explore this variant". 
+
+```{r Import Genotypic Data}
+#Mexican Ancestry in Los Angeles, California CSV file
+rs <- read.csv("rs8067378.csv")
+
+head(table(t(rs)))
+```
+
+> Q5. The proportion of (G|G) asthma-associated, homozygous genotypes in this dataset is 9/64 (14%). 
+
+Every person in the dataset has a number associated with them. We can use the "search for a sample" field to search for this number directly if we know what person we are trying to find. 
+
+> Q6. For example, serching the particular sample HG00109 gives a person from the GBR population group with the genotype *(G|G)*.
+
+
+# Section 2. Initial RNA-Seq Analysis
+
+Now, we want to understand whether the SNP will affect gene expression. 
+
+```{r RNA-Seq Data Import}
+#We will be working with RNA sequences from HG00109
+seq1 <- "HG00109_1.fastq"
+seq2 <- "HG00109_2.fastq"
+```
+
+> Q7. There are *3863 sequences* in a *fastqsanger format* file sized *757 kb*. 
+
+> Q8. The measn GC content of file 2 is about *53%* and the sequence length is *50-75*. 
+
+> Q9. No trimming is required for this dataset. The per base sequence quality is >= 30 for all bases.
+
+
+# Section 3. Mapping RNA-Seq reads to genome
+
+Here, we will be using Tophat to map the RNA sequences to the human genome. 
+
+> Q10. The most accepted hits are located in the regions
+  chr17: 38,140,121 - 38,154,856 and
+  chr17: 38,061,531 - 38,080,564
+
+> Q11. The RNA reads seem to be mapping the genes *PSMD3* and *ORMDL3*. 
+
+The Cufflinks tool allows us to calculate gene expression (aligns RNA with annotated genome to result in list of genes being expressed, as evidenced by their transcription into RNA).
+
+```{r Cufflinks Gene Expression}
+gene <- read.table("C:/Users/rodeo/Documents/School/BIMM 143/R Projects/Class10/Galaxy20-[Cufflinks_on_data_18_and_data_16__gene_expression].tabular")
+
+gene[ gene$V10 > 0, 1]
+```
+
+> Q12. The FPKM for ORMDL3 is 136853. Other genes with FPKM > 0 are ZPBP2, GSDMB, GSDMA, and PSMD3. 
+
+
+# Section 4. Population Scale Analysis
+
+```{r}
+#Import Population Genotypes
+as <- read.table("C:/Users/rodeo/Documents/School/BIMM 143/R Projects/Class10/rs8067378_ENSG00000172057.6.txt")
+
+table(as)
+summary(as)
+boxplot(as$exp, group = factor(as$geno))
+```
+
+> Q13. 
+

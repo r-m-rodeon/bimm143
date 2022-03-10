@@ -1,0 +1,211 @@
+---
+title: "class11"
+output:
+  pdf_document: default
+  word_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Workspace Setup
+
+```{r}
+#Get and load DESeq2 from Bioconductor for Data
+#BiocManager::install("DESeq2")
+
+library(BiocManager)
+library(DESeq2)
+
+#Import countData and colData
+counts <- read.csv("airway_scaledcounts.csv", row.names=1)
+metadata <- read.csv("airway_metadata.csv")
+
+head(counts)
+head(metadata)
+
+#Double check that the columns of the countdata match the rows of the coldata; 'all()' funciton makes sure that all the values come back TRUE
+#'all()': all true -> TRUE, any false -> FALSE, all false -> FALSE
+all(metadata$id == colnames(counts))
+```
+
+#Q1. There are 38694 genes in this dataset.
+
+#Q2. There are 4 'control' cell lines. 
+
+
+## Data pre-processing
+
+```{r}
+#Separate data from the metadata table
+metadata.ctrl <- metadata[metadata$dex == "control", ]
+metadata.trtd <- metadata[metadata$dex == "treated", ]
+
+#Extract control and treated counts
+##DataSet[selection]$column_to_extract
+control.ids <- metadata[metadata$dex == "control", ]$id
+control.counts <- counts[,control.ids]
+head(control.counts)
+
+treated.ids <- metadata[metadata$dex == "treated", ]$id
+treated.counts <- counts[,treated.ids]
+head(treated.counts)
+```
+#Q3. You could make the code from the website more robust by using the mean() function instead of RowSums()/4, because in order to use the latter approach, you would need to find how many columns there are, whereas with the former, you will be able to get the answer without this research.
+
+#Q4. Done.
+
+
+## Data that will be useful for us to look at
+
+```{r}
+#Summarize & visualize extracted data
+control.mean <- rowMeans(control.counts)
+treated.mean <- rowMeans(treated.counts)
+
+plot(treated.mean, control.mean) #Q5
+
+plot(log(treated.mean), log(control.mean), #Q6
+     xlab= "Log of Drug Treated Counts", 
+     ylab= "Log of Control Counts")
+#ggplot function: scale_x_continuous(trans="log2")
+```
+
+```{r}
+#Calculate fold change between treated and untreated patients
+#log2 of the fold change has better mathematical properties
+treated.fold <- log2(treated.mean/control.mean)
+
+#Organize Data
+workingtable <- data.frame(control.mean, treated.mean, treated.fold)
+
+#Remove Nonsensical Data
+zero.vals <- which(workingtable[,1:2]==0, arr.ind=TRUE)
+
+to.rm <- unique(zero.vals[,1])
+workingtable2 <- workingtable[-to.rm,]
+head(workingtable2)
+```
+
+#Q7. The purpose of the arr.ind is to make the output of the which() function into a table specifying the row and column of where the result is found, rather than a list that doesn't apply well onto a table. We would then need to call the unique() function to ensure that we don't delete two separate rows for an instance where both the before and after values are 0. 
+
+```{r}
+#Find up-regulated & down-regulated genes
+up.ind <- workingtable2$treated.fold > (2)
+down.ind <- workingtable2$treated.fold < (-2)
+
+#Determine number of up-regulated and down-regulated genes
+sum(up.ind) #Q8
+sum(down.ind) #Q9
+```
+
+#Q8. There are 250 up-regulated genes. 
+
+#Q9. There are 367 donw-regulated genes. 
+
+#Q10. These results are good, but they need to be determined whether or not they are actually statistically significant. The mean is also a single-number summary that can hide a lot of detail within itself. 
+
+
+## DESeq2 Analysis
+
+```{r}
+#Format data into input for DESeq2
+dds <- DESeqDataSetFromMatrix(countData=counts, 
+                              colData=metadata, 
+                              design=~dex)
+dds
+
+#Run the program to get p-values
+dds <- DESeq(dds)
+
+#View results
+res <- results(dds)
+head(res)
+```
+
+## Volcano Plots
+
+```{r}
+#Raw DESeq2 output plot
+plot(res$log2FoldChange,res$padj)
+```
+
+```{r}
+#Make custom color vector for plot
+
+##Make vector with default color, same length as the number of plotted pts
+custom.color <- rep("gray", nrow(res))
+
+##Overwrite high fold change points with red
+custom.color[abs(res$log2FoldChange) > 2] <- "red"
+
+##Overwrite points with high p-value with blue
+custom.color[(res$padj < 0.05) & (abs(res$log2FoldChange) > 2)] <- "blue"
+###High p-value = small -log(padj), since the negative of the log will flip these paints from near zero to large positive numbers
+```
+
+```{r}
+#Log DESeq2 output plot & annotate by color
+plot(res$log2FoldChange,-log(res$padj),
+     col=custom.color)
+abline(h=-log(0.05), col="gray")
+abline(v=c(-2,2), col="gray")
+```
+
+## Significant results are the blue dots. The blue dots are both higher than 2-fold increase in either direction, and have p<0.05, making these results significant.
+
+
+## Adding annotation data - equivalent to looking up all the genes in a database manually, but automated!
+
+To help interpret our results we need to understand what the differentially expressed genes are. A first step here is to get the gene names (i.e. gene SYMBOLs). 
+
+For this I will install: 
+ - BiocManager::install("AnnotationDbi")
+ - BiocManager::install(org.Hs.eg.db")
+ 
+We will use the `mapIds()` function to translate between different ids. 
+
+```{r}
+#All available types to map between: `columns(org.Hs.eg.db)`
+
+res$symbol <- mapIds(org.Hs.eg.db,
+                     keys=row.names(res), # Our genenames
+                     keytype="ENSEMBL",        # The format of our genenames
+                     column="SYMBOL",          # The new format we want to add
+                     multiVals="first")
+
+head(res)
+```
+
+#Q11. Run the mapIds() function two more times to add the Entrez ID and UniProt accession and GENENAME as new columns called res$entrez, res$uniprot and res$genename.
+
+```{r}
+#Entrez ID column
+res$entrez <- mapIds(org.Hs.eg.db, 
+                     keys=row.names(res), 
+                     keytype="ENSEMBL",
+                     column="ENTREZID",
+                     multiVals="first")
+
+#UniProt Accession Number
+res$uniprot <- mapIds(org.Hs.eg.db,
+                      keys=row.names(res),
+                      keytype="ENSEMBL",
+                      column="UNIPROT",
+                      multiVals="first")
+
+#Gene Name
+res$genename <- mapIds(org.Hs.eg.db,
+                      keys=row.names(res),
+                      keytype="ENSEMBL",
+                      column="GENENAME",
+                      multiVals="first")
+
+```
+
+
+
+
+
+
