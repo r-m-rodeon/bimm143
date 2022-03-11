@@ -2,8 +2,8 @@
 title: "class15"
 author: "Rodeon Malinovski"
 output:
-  pdf_document: default
   html_document: default
+  pdf_document: default
 ---
 
 ```{r setup, include=FALSE}
